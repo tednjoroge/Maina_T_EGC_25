@@ -133,7 +133,10 @@ public class Game : GameWindow
 
         // TODO (T3): la clic stânga, obiectul selectat se mută în punctul din lume aflat sub cursor
         //            (folosiți ScreenToWorld; Depth nu se schimbă)
-
+         if (MouseState.IsButtonPressed(MouseButton.Left))
+        {
+            sel.Transform.Position = ScreenToWorld(MouseState.Position);  
+        }
         // TODO (T4, facultativ): clic dreapta = pivot; tasta P ținută = rotație în jurul pivotului
 
         // --- Camera: tastatura și rotița (secțiunea 6.2) -----------------------------
@@ -213,8 +216,22 @@ public class Game : GameWindow
     /// <summary>Transformă poziția mouse-ului (pixeli, origine stânga-sus) în coordonate de lume.</summary>
     private Vector2 ScreenToWorld(Vector2 mousePixels)
     {
-        // TODO (T3): pasul 1 (pixel → NDC), apoi pasul 2 (NDC → lume, cu inversa lui view * projection)
-        return Vector2.Zero;
+        // (pixel → NDC). y al mouse-ului crește în jos, iar y în NDC crește în sus,
+        // de aceea apare "1 -" în formula pentru y: axa y trebuie întoarsă.
+        // Fără el, la clic obiectul ar ajunge în punctul simetric față de axa orizontală.
+        // Verificare: (0; 0) stânga-sus → (-1; 1), (W; H) dreapta-jos → (1; -1).
+        float xNdc = 2.0f * mousePixels.X / ClientSize.X - 1.0f;
+        float yNdc = 1.0f - 2.0f * mousePixels.Y / ClientSize.Y;
+
+        //  (NDC → lume): inversa lui view * projection, calculată la fiecare clic,
+        // ca să țină cont de poziția camerei, de zoom și de raportul de aspect curent.
+        Matrix4 inverse = (_camera.ViewMatrix * _camera.ProjectionMatrix).Inverted();
+
+        // punctul stă în stânga matricei (convenția OpenTK, vectori linie); z_ndc = 0 este
+        // potrivit în proiecția ortografică, unde z nu influențează x și y din lume
+        Vector4 world = new Vector4(xNdc, yNdc, 0.0f, 1.0f) * inverse;
+
+        return new Vector2(world.X, world.Y);
     }
 
     /// <summary>Tasta R: obiectele revin la transformările inițiale, camera la starea inițială.</summary>
